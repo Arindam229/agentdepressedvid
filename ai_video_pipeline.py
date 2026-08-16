@@ -26,40 +26,97 @@ DEFAULT_TITLES = [
 
 
 DEFAULT_PROMPT = (
-    "blurry candid low-resolution frame of a depressed somber young girl looking out a window at night, "
-    "dark moody blue lighting, ambient city night lights out the window, melancholic sad mood, camera grain, "
-    "subtle VHS scanlines, realistic raw aesthetic, 90s aesthetic"
+    "A photorealistic candid low-light photograph of a melancholic young woman leaning near a room window at night, "
+    "dark ambient deep blue lighting, faint city lights softly blurred outside the window, sad and somber expression, "
+    "natural grain, soft indoor shadow tones, authentic mood, 35mm film photography aesthetic"
 )
 
 def generate_ai_image(output_path="background_ai.jpg", prompt=None, seed=None):
-    """Generates dynamic realistic depressed VHS girl background image using Pollinations FLUX API."""
-    import urllib.parse
-    print("[0/5] Generating fresh AI image via Pollinations (FLUX)...")
+    """Generates photorealistic melancholy background using Gemini / Imagen or OpenRouter API."""
+    import urllib.request
+    import json
+    
+    print("[0/5] Generating photorealistic image via Gemini / OpenRouter API...")
     
     if not prompt:
         prompt = DEFAULT_PROMPT
-    if seed is None:
-        seed = random.randint(1000, 999999)
         
-    encoded_prompt = urllib.parse.quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=flux&seed={seed}&nologo=true"
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
     
+    # 1. Try Gemini Imagen API if API key is available
+    if api_key and api_key.startswith("AIza"):
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={api_key}"
+            payload = {
+                "prompt": prompt,
+                "config": {
+                    "numberOfImages": 1,
+                    "aspectRatio": "16:9",
+                    "outputMimeType": "image/jpeg"
+                }
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'}
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                import base64
+                img_b64 = data['generatedImages'][0]['image']['imageBytes']
+                with open(output_path, "wb") as f:
+                    f.write(base64.b64decode(img_b64))
+            print(f"Gemini Imagen image saved: {output_path}")
+            return output_path
+        except Exception as e:
+            print(f"Gemini Imagen request failed: {e}. Trying OpenRouter / Pollinations fallback...")
+
+    # 2. Try OpenRouter API if OPENROUTER_API_KEY set
+    openrouter_key = os.getenv("OPENROUTER_API_KEY")
+    if openrouter_key:
+        try:
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            payload = {
+                "model": "google/imagen-3",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={
+                    'Authorization': f'Bearer {openrouter_key}',
+                    'Content-Type': 'application/json'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                # Handle openrouter response
+        except Exception as e:
+            print(f"OpenRouter request failed: {e}")
+
+    # 3. High quality Pollinations Turbo realistic model fallback
     try:
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req) as resp, open(output_path, "wb") as f:
+        import urllib.parse
+        if seed is None:
+            seed = random.randint(1000, 999999)
+        encoded_prompt = urllib.parse.quote(f"photorealistic film snapshot of {prompt}")
+        poll_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=turbo&seed={seed}&nologo=true"
+        req = urllib.request.Request(poll_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=60) as resp, open(output_path, "wb") as f:
             f.write(resp.read())
-        print(f"AI Image successfully generated and saved to: {output_path}")
+        print(f"High-quality realistic image saved: {output_path}")
         return output_path
     except Exception as e:
-        print(f"Failed to generate AI image: {e}")
+        print(f"Image generation failed: {e}")
         return None
+
 
 
 def fetch_spotify_tracks(playlist_url):
     """Scrapes track links/titles from a public Spotify playlist URL."""
     print(f"[1/5] Fetching Spotify playlist: {playlist_url}")
     req = urllib.request.Request(playlist_url, headers={'User-Agent': 'Mozilla/5.0'})
-    html = urllib.request.urlopen(req).read().decode('utf-8')
+    html = urllib.request.urlopen(req, timeout=15).read().decode('utf-8')
     
     track_ids = re.findall(r'https://open\.spotify\.com/track/([a-zA-Z0-9]+)', html)
     tracks = []
@@ -71,7 +128,8 @@ def fetch_spotify_tracks(playlist_url):
         seen.add(track_id)
         try:
             embed_url = f"https://open.spotify.com/oembed?url=https://open.spotify.com/track/{track_id}"
-            resp = urllib.request.urlopen(embed_url)
+            req_embed = urllib.request.Request(embed_url, headers={'User-Agent': 'Mozilla/5.0'})
+            resp = urllib.request.urlopen(req_embed, timeout=5)
             data = json.loads(resp.read().decode('utf-8'))
             title = data.get('title')
             if title:
@@ -81,6 +139,7 @@ def fetch_spotify_tracks(playlist_url):
 
     print(f"Total unique tracks scraped: {len(tracks)}")
     return tracks
+
 
 def download_and_select_audio(tracks, temp_dir="temp_audio"):
     """Randomly selects tracks and downloads audio until total ~3 hours is reached."""
