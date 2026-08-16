@@ -15,28 +15,43 @@ def get_authenticated_service(token_path="token.pickle"):
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     creds = None
     
-    # Try pickle first, then json token
-    if os.path.exists(token_path):
+    # Search candidates for YouTube token
+    candidate_paths = [
+        token_path,
+        "token.json",
+        os.path.join("agentforchatvid", "token.json"),
+        os.path.join("agentforchatvid", "token.pickle")
+    ]
+    
+    found_path = None
+    for path in candidate_paths:
+        if os.path.exists(path):
+            found_path = path
+            break
+            
+    if found_path:
         try:
-            with open(token_path, "rb") as token:
-                creds = pickle.load(token)
+            with open(found_path, "rb") as f:
+                creds = pickle.load(f)
         except Exception:
             try:
                 from google.oauth2.credentials import Credentials
-                creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+                creds = Credentials.from_authorized_user_file(found_path, SCOPES)
             except Exception as e:
-                print(f"Failed to load credentials from {token_path}: {e}")
+                print(f"Failed to load credentials from {found_path}: {e}")
                 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing YouTube OAuth access token...")
             creds.refresh(Request())
-            with open(token_path, "wb") as token:
-                pickle.dump(creds, token)
+            target_save = found_path or token_path
+            with open(target_save, "wb") as f:
+                pickle.dump(creds, f)
         else:
             raise Exception("No valid YouTube credentials token found!")
             
     return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
+
 
 def upload_video_to_youtube(video_path, title, description, category_id="10"):
     """Uploads video to YouTube channel (Category 10 = Music)."""
