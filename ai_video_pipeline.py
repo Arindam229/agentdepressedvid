@@ -219,16 +219,17 @@ def generate_video(image_path, audio_path, output_video="output_final.mp4", vide
     print(f"Video saved successfully: {output_video}")
 
 def export_metadata(timestamps, video_title, playlist_url, output_file="YOUTUBE_DESCRIPTION.txt"):
-    """Writes YouTube description file with title, Spotify playlist link, and track timestamps."""
+    """Writes YouTube description file with title, Spotify playlist link, and track timestamps (no emojis)."""
     print("[5/5] Generating metadata & description file...")
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(f"TITLE: {video_title}\n\n")
-        f.write(f"🎧 Original Spotify Playlist:\n{playlist_url}\n\n")
-        f.write("📜 Tracklist & Timestamps:\n")
+        f.write(f"Original Spotify Playlist:\n{playlist_url}\n\n")
+        f.write("Tracklist & Timestamps:\n")
         for line in timestamps:
             f.write(f"{line}\n")
         f.write("\n---\nCreated with AI Video Pipeline")
     print(f"Metadata exported to {output_file}")
+
 
 def run_pipeline(playlist_url, image_path=None, video_title=None, upload=False):
     if not video_title:
