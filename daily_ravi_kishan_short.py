@@ -51,7 +51,18 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
         if not os.path.exists(path):
             continue
             
-        # 1. Try loading as JSON
+        # 1. Try loading as JSON (from_authorized_user_file)
+        try:
+            from google.oauth2.credentials import Credentials
+            creds = Credentials.from_authorized_user_file(path, SCOPES)
+            if creds and (creds.valid or creds.refresh_token):
+                found_path = path
+                print(f"Loaded credentials from JSON file: {path}")
+                break
+        except Exception:
+            pass
+
+        # 2. Try loading as JSON dict (from_authorized_user_info)
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -59,16 +70,18 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
             creds = Credentials.from_authorized_user_info(data, SCOPES)
             if creds and (creds.valid or creds.refresh_token):
                 found_path = path
+                print(f"Loaded credentials from JSON dict: {path}")
                 break
         except Exception:
             pass
 
-        # 2. Try loading as Pickle
+        # 3. Try loading as Pickle
         try:
             with open(path, "rb") as f:
                 creds = pickle.load(f)
             if creds and (creds.valid or creds.refresh_token):
                 found_path = path
+                print(f"Loaded credentials from Pickle file: {path}")
                 break
         except Exception as e:
             print(f"Note: Could not load pickle credentials from {path}: {e}")
