@@ -53,8 +53,8 @@ def get_authenticated_service(token_path="token.pickle"):
     return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
 
 
-def upload_video_to_youtube(video_path, title, description, category_id="10"):
-    """Uploads video to YouTube channel (Category 10 = Music)."""
+def upload_video_to_youtube(video_path, title, description, category_id="10", thumbnail_path=None):
+    """Uploads video and custom thumbnail to YouTube channel (Category 10 = Music)."""
     print(f"Starting upload to YouTube: {title}")
     youtube = get_authenticated_service()
     
@@ -75,4 +75,17 @@ def upload_video_to_youtube(video_path, title, description, category_id="10"):
     response = request.execute()
     video_id = response.get("id")
     print(f"Upload Successful! YouTube Video ID: {video_id}")
+    
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        try:
+            print(f"Uploading thumbnail: {thumbnail_path}")
+            youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(thumbnail_path)
+            ).execute()
+            print("Thumbnail uploaded successfully!")
+        except Exception as e:
+            print(f"Failed to set thumbnail: {e}")
+            
     return video_id
+

@@ -254,9 +254,10 @@ def run_pipeline(playlist_url, image_path=None, video_title=None, upload=False):
             from youtube_uploader import upload_video_to_youtube
             with open(desc_file, "r", encoding="utf-8") as f:
                 desc = f.read()
-            upload_video_to_youtube(output_video, video_title, desc)
+            upload_video_to_youtube(output_video, video_title, desc, thumbnail_path=image_path)
         except Exception as e:
             print(f"Error during YouTube upload: {e}")
+
 
     # Cleanup temporary image file
     if os.path.exists("background_ai.jpg"):
