@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Large audio/video build files
+*.mp3
+*.mp4
+temp_audio/
+output_audio.mp3
+output_final.mp4
+final_audio.mp3
+
+# Secret tokens and credentials
+token.pickle
+token.json
+.env
+
+# Logs and scratch
+*.log
+scratch/
