@@ -25,28 +25,31 @@ def get_authenticated_service(token_path="token.pickle"):
     
     found_path = None
     for path in candidate_paths:
-        if os.path.exists(path):
-            found_path = path
-            break
+        if not os.path.exists(path):
+            continue
             
-    if found_path:
-        # 1. Try loading as JSON (cross-platform format)
+        # 1. Try loading as JSON
         try:
-            with open(found_path, "r", encoding="utf-8") as f:
+            with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             from google.oauth2.credentials import Credentials
             creds = Credentials.from_authorized_user_info(data, SCOPES)
+            if creds and (creds.valid or creds.refresh_token):
+                found_path = path
+                break
         except Exception:
             pass
 
-        # 2. Try loading as pickle
-        if not creds:
-            try:
-                with open(found_path, "rb") as f:
-                    creds = pickle.load(f)
-            except Exception as e:
-                print(f"Failed to load credentials from {found_path}: {e}")
-                
+        # 2. Try loading as Pickle
+        try:
+            with open(path, "rb") as f:
+                creds = pickle.load(f)
+            if creds and (creds.valid or creds.refresh_token):
+                found_path = path
+                break
+        except Exception as e:
+            print(f"Note: Could not load pickle credentials from {path}: {e}")
+            
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("Refreshing YouTube OAuth access token...")
