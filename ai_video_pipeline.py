@@ -26,10 +26,34 @@ DEFAULT_TITLES = [
 
 
 DEFAULT_PROMPT = (
-    "A blurry, candid lo-fi frame of a depressed somber young girl looking out a window at twilight, "
-    "dark deep blue lighting, ambient city night lights outside, melancholic sad mood, camera grain, "
+    "blurry candid low-resolution frame of a depressed somber young girl looking out a window at night, "
+    "dark moody blue lighting, ambient city night lights out the window, melancholic sad mood, camera grain, "
     "subtle VHS scanlines, realistic raw aesthetic, 90s aesthetic"
 )
+
+def generate_ai_image(output_path="background_ai.jpg", prompt=None, seed=None):
+    """Generates dynamic realistic depressed VHS girl background image using Pollinations FLUX API."""
+    import urllib.parse
+    print("[0/5] Generating fresh AI image via Pollinations (FLUX)...")
+    
+    if not prompt:
+        prompt = DEFAULT_PROMPT
+    if seed is None:
+        seed = random.randint(1000, 999999)
+        
+    encoded_prompt = urllib.parse.quote(prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=flux&seed={seed}&nologo=true"
+    
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as resp, open(output_path, "wb") as f:
+            f.write(resp.read())
+        print(f"AI Image successfully generated and saved to: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"Failed to generate AI image: {e}")
+        return None
+
 
 def fetch_spotify_tracks(playlist_url):
     """Scrapes track links/titles from a public Spotify playlist URL."""
@@ -176,10 +200,15 @@ def export_metadata(timestamps, video_title, playlist_url, output_file="YOUTUBE_
         f.write("\n---\nCreated with AI Video Pipeline")
     print(f"Metadata exported to {output_file}")
 
-def run_pipeline(playlist_url, image_path, video_title=None, upload=False):
+def run_pipeline(playlist_url, image_path=None, video_title=None, upload=False):
     if not video_title:
         video_title = random.choice(DEFAULT_TITLES)
         
+    if not image_path or not os.path.exists(image_path):
+        generated_path = generate_ai_image("background_ai.jpg")
+        if generated_path and os.path.exists(generated_path):
+            image_path = generated_path
+            
     tracks = fetch_spotify_tracks(playlist_url)
     audio_files, timestamps = download_and_select_audio(tracks)
     master_audio = create_concat_audio(audio_files)
@@ -202,11 +231,12 @@ DEFAULT_PLAYLIST_URL = "https://open.spotify.com/playlist/3WYcoszlfcLRB3lbHEhN5i
 
 if __name__ == "__main__":
     playlist_url = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else DEFAULT_PLAYLIST_URL
-    image_path = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else "agentforchatvid/Gemini_Generated_Image_azeja3azeja3azej.png"
+    image_path = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else "background_ai.jpg"
     title = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("--") else None
     upload = "--upload" in sys.argv
     
     run_pipeline(playlist_url, image_path, title, upload=upload)
+
 
 
 
