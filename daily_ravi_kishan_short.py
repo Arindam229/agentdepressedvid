@@ -1,7 +1,9 @@
 import os
 import sys
+import json
 import pickle
 import argparse
+import subprocess
 from datetime import datetime, date
 import googleapiclient.discovery
 import googleapiclient.errors
@@ -32,6 +34,30 @@ def get_day_counter(counter_file="day_counter.txt"):
             pass
             
     return days_elapsed
+
+def prepare_short_video(input_path, output_path="ravi_kishan_short_vertical.mp4"):
+    """Converts 16:9 landscape video into 9:16 vertical 1080x1920 video for YouTube Shorts."""
+    print("=======================================================")
+    print(" [1/3] Converting landscape video into 9:16 Vertical Short format...")
+    print("=======================================================")
+    
+    filter_graph = (
+        "split[a][b];"
+        "[a]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=15:3[bg];"
+        "[b]scale=1080:1920:force_original_aspect_ratio=decrease[fg];"
+        "[bg][fg]overlay=(W-w)/2:(H-h)/2"
+    )
+    cmd = [
+        "ffmpeg", "-y",
+        "-i", input_path,
+        "-vf", filter_graph,
+        "-c:v", "libx264", "-preset", "ultrafast",
+        "-c:a", "copy",
+        output_path
+    ]
+    subprocess.run(cmd, check=True)
+    print(f"Vertical Short video generated: {output_path}\n")
+    return output_path
 
 def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -108,37 +134,78 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
             
     return googleapiclient.discovery.build("youtube", "v3", credentials=creds)
 
-def upload_short(video_path, day_num, upload=False):
-    title = f"Ravi Kishan singing song day {day_num} #shorts #ravikishan #meme"
-    description = (
+def upload_short_and_video(video_path, day_num, upload=False):
+    if not os.path.exists(video_path):
+        raise FileNotFoundError(f"Video file not found: {video_path}")
+
+    # Prepare vertical 9:16 short video file
+    vertical_short_path = "ravi_kishan_short_vertical.mp4"
+    prepare_short_video(video_path, vertical_short_path)
+
+    # 1. YouTube Short Details (9:16 Vertical Video)
+    short_title = f"Ravi Kishan singing song day {day_num} #shorts #ravikishan #meme"
+    short_description = (
         f"Day {day_num} of posting Ravi Kishan singing in white outfit meme template.\n\n"
         f"#shorts #ravikishan #memes #trending #ravikishansinging"
     )
-    
+
+    # 2. Regular YouTube Video Details (Original Landscape Video)
+    video_title = f"Ravi Kishan singing song day {day_num}"
+    video_description = (
+        f"Day {day_num} of posting Ravi Kishan singing in white outfit meme template.\n\n"
+        f"#ravikishan #memes #trending #ravikishansinging"
+    )
+
     print("=======================================================")
-    print(f" PIPELINE: Ravi Kishan Singing Short - Day {day_num}")
+    print(f" PIPELINE SUMMARY: Day {day_num}")
     print("=======================================================")
-    print(f"Video File: {video_path}")
-    print(f"Title: {title}")
-    print(f"Description:\n{description}")
+    print(f"[1] SHORT TITLE: {short_title}")
+    print(f"[1] SHORT FILE: {vertical_short_path} (1080x1920 9:16 Vertical)")
+    print("-------------------------------------------------------")
+    print(f"[2] REGULAR TITLE: {video_title}")
+    print(f"[2] REGULAR FILE: {video_path} (1280x720 16:9 Landscape)")
     print("=======================================================\n")
-    
-    if not os.path.exists(video_path):
-        raise FileNotFoundError(f"Video file not found: {video_path}")
 
     if not upload:
         print("[DRY-RUN MODE] --upload flag not passed. Skipping actual YouTube upload.")
         return None
 
     youtube = get_authenticated_service()
-    
-    request = youtube.videos().insert(
+
+    # Upload 1: YouTube Short
+    print("=======================================================")
+    print(" [2/3] Uploading YouTube Short (9:16 Vertical)...")
+    print("=======================================================")
+    short_request = youtube.videos().insert(
         part="snippet,status",
         body={
             "snippet": {
-                "categoryId": "23", # 23 = Comedy, 10 = Music
-                "description": description,
-                "title": title
+                "categoryId": "23", # 23 = Comedy
+                "description": short_description,
+                "title": short_title
+            },
+            "status": {
+                "privacyStatus": "public"
+            }
+        },
+        media_body=MediaFileUpload(vertical_short_path, chunksize=-1, resumable=True)
+    )
+    short_response = short_request.execute()
+    short_id = short_response.get("id")
+    print(f"[+] Short Upload Successful! ID: {short_id}")
+    print(f"    Short URL: https://youtube.com/shorts/{short_id}\n")
+
+    # Upload 2: Regular Video
+    print("=======================================================")
+    print(" [3/3] Uploading Regular YouTube Video (16:9 Landscape)...")
+    print("=======================================================")
+    video_request = youtube.videos().insert(
+        part="snippet,status",
+        body={
+            "snippet": {
+                "categoryId": "23", # 23 = Comedy
+                "description": video_description,
+                "title": video_title
             },
             "status": {
                 "privacyStatus": "public"
@@ -146,21 +213,26 @@ def upload_short(video_path, day_num, upload=False):
         },
         media_body=MediaFileUpload(video_path, chunksize=-1, resumable=True)
     )
-    
-    print("Uploading video to YouTube Shorts...")
-    response = request.execute()
-    video_id = response.get("id")
-    print(f"Upload Successful! YouTube Video ID: {video_id}")
-    print(f"Watch URL: https://youtube.com/shorts/{video_id}")
-    
+    video_response = video_request.execute()
+    video_id = video_response.get("id")
+    print(f"[+] Regular Video Upload Successful! ID: {video_id}")
+    print(f"    Video URL: https://youtube.com/watch?v={video_id}\n")
+
     # Save/update local counter file
     with open("day_counter.txt", "w") as f:
         f.write(str(day_num + 1))
-        
-    return video_id
+
+    # Clean up generated vertical short video file
+    if os.path.exists(vertical_short_path):
+        try:
+            os.remove(vertical_short_path)
+        except Exception:
+            pass
+
+    return short_id, video_id
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Upload Daily Ravi Kishan Meme Short")
+    parser = argparse.ArgumentParser(description="Upload Daily Ravi Kishan Meme Short & Video")
     parser.add_argument("--upload", action="store_true", help="Perform actual YouTube upload")
     parser.add_argument("--video", type=str, default=VIDEO_FILENAME, help="Path to video file")
     parser.add_argument("--day", type=int, default=None, help="Override day counter")
@@ -170,4 +242,4 @@ if __name__ == "__main__":
     day_num = args.day if args.day is not None else get_day_counter()
     video_path = args.video if os.path.exists(args.video) else os.path.join(os.path.dirname(__file__), args.video)
     
-    upload_short(video_path, day_num, upload=args.upload)
+    upload_short_and_video(video_path, day_num, upload=args.upload)
