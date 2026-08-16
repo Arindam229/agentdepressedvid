@@ -258,6 +258,15 @@ def run_pipeline(playlist_url, image_path=None, video_title=None, upload=False):
         except Exception as e:
             print(f"Error during YouTube upload: {e}")
 
+    # Cleanup temporary image file
+    if os.path.exists("background_ai.jpg"):
+        try:
+            os.remove("background_ai.jpg")
+            print("Cleaned up temporary background_ai.jpg")
+        except Exception:
+            pass
+
+
 DEFAULT_PLAYLIST_URL = "https://open.spotify.com/playlist/3WYcoszlfcLRB3lbHEhN5i"
 
 if __name__ == "__main__":
