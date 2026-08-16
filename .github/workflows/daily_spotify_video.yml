@@ -28,7 +28,7 @@ jobs:
       - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install yt-dlp google-api-python-client google-auth-oauthlib google-auth-httplib2 pillow
+          pip install -U yt-dlp google-api-python-client google-auth-oauthlib google-auth-httplib2 pillow
 
       - name: Restore YouTube OAuth Token from Secrets
         env:
@@ -44,4 +44,4 @@ jobs:
       - name: Run Video Pipeline & Upload to YouTube
         run: |
           # Usage: python ai_video_pipeline.py <PLAYLIST_URL> <IMAGE_PATH> --upload
-          python ai_video_pipeline.py "https://open.spotify.com/playlist/3WYcoszlfcLRB3lbHEhN5i" "agentforchatvid/Gemini_Generated_Image_azeja3azeja3azej.png" --upload
+          python ai_video_pipeline.py "https://open.spotify.com/playlist/3WYcoszlfcLRB3lbHEhN5i" --upload

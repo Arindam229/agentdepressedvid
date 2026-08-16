@@ -122,6 +122,14 @@ def download_and_select_audio(tracks, temp_dir="temp_audio"):
     current_time = 0
     
     print("[2/5] Downloading random tracks with yt-dlp...")
+
+    # Player client strategies to bypass YouTube 403 / anti-bot blocks
+    extractor_strategies = [
+        ["--extractor-args", "youtube:player_client=mweb,android"],
+        ["--extractor-args", "youtube:player_client=android,web,tvhtml5"],
+        ["--extractor-args", "youtube:player_client=web,mweb"],
+        []  # default fallback
+    ]
     
     for idx, track in enumerate(tracks, 1):
         if current_time >= TARGET_DURATION_SECONDS:
@@ -129,23 +137,35 @@ def download_and_select_audio(tracks, temp_dir="temp_audio"):
             
         print(f"Processing ({idx}/{len(tracks)}): {track}")
         output_template = os.path.join(temp_dir, f"track_{idx}.%(ext)s")
-        
-        # Download audio via yt-dlp
-        cmd = [
-            "yt-dlp",
-            "--default-search", "ytsearch1:",
-            "-x", "--audio-format", "mp3",
-            "-o", output_template,
-            f"{track} audio"
-        ]
-        
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode != 0:
-            print(f"Failed to download: {track}")
-            continue
-            
         file_path = os.path.join(temp_dir, f"track_{idx}.mp3")
-        if not os.path.exists(file_path):
+
+        success = False
+        last_error = ""
+
+        for strat in extractor_strategies:
+            cmd = [
+                "yt-dlp",
+                "--default-search", "ytsearch1:",
+                "-x", "--audio-format", "mp3",
+                "--no-playlist",
+                "--no-check-certificates",
+                *strat,
+                "-o", output_template,
+                f"{track} audio"
+            ]
+            
+            res = subprocess.run(cmd, capture_output=True, text=True)
+            if res.returncode == 0 and os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                success = True
+                break
+            else:
+                last_error = res.stderr.strip() if res.stderr else res.stdout.strip()
+
+        if not success:
+            print(f"Failed to download: {track}")
+            if last_error:
+                first_err_line = last_error.splitlines()[-1] if last_error else "Unknown error"
+                print(f"  Reason: {first_err_line}")
             continue
             
         # Get duration using ffprobe
@@ -175,6 +195,9 @@ def download_and_select_audio(tracks, temp_dir="temp_audio"):
 def create_concat_audio(audio_files, output_file="final_audio.mp3"):
     """Merges all downloaded tracks into a single concatenated audio file using FFmpeg."""
     print("[3/5] Merging audio files into master track...")
+    if not audio_files:
+        raise RuntimeError("No audio files were successfully downloaded! Cannot concatenate empty track list.")
+
     list_file = "file_list.txt"
     with open(list_file, "w", encoding="utf-8") as f:
         for filepath in audio_files:
