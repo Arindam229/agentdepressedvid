@@ -198,16 +198,15 @@ def run_pipeline(playlist_url, image_path, video_title=None, upload=False):
         except Exception as e:
             print(f"Error during YouTube upload: {e}")
 
+DEFAULT_PLAYLIST_URL = "https://open.spotify.com/playlist/3WYcoszlfcLRB3lbHEhN5i"
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python ai_video_pipeline.py <SPOTIFY_PLAYLIST_URL> <IMAGE_PATH> [VIDEO_TITLE] [--upload]")
-        sys.exit(1)
-    
-    playlist_url = sys.argv[1]
-    image_path = sys.argv[2]
+    playlist_url = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("--") else DEFAULT_PLAYLIST_URL
+    image_path = sys.argv[2] if len(sys.argv) > 2 and not sys.argv[2].startswith("--") else "agentforchatvid/Gemini_Generated_Image_azeja3azeja3azej.png"
     title = sys.argv[3] if len(sys.argv) > 3 and not sys.argv[3].startswith("--") else None
     upload = "--upload" in sys.argv
     
     run_pipeline(playlist_url, image_path, title, upload=upload)
+
 
 
