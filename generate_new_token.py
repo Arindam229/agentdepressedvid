@@ -34,14 +34,17 @@ def generate_token(output_filename="token_ravi_kishan.pickle", secret_name="RAVI
 
     creds = flow.run_local_server(port=0, prompt="select_account")
 
+    json_file = output_filename.replace(".pickle", ".json") if output_filename.endswith(".pickle") else output_filename + ".json"
+    with open(json_file, "w", encoding="utf-8") as f:
+        f.write(creds.to_json())
+
     with open(output_filename, "wb") as f:
         pickle.dump(creds, f)
 
-    print(f"\n[+] Credentials saved successfully to: {output_filename}")
+    print(f"\n[+] Credentials saved to: {json_file} and {output_filename}")
 
-    # Read and encode to Base64 for GitHub Actions Secret
-    with open(output_filename, "rb") as f:
-        encoded_secret = base64.b64encode(f.read()).decode("utf-8")
+    # Read and encode JSON to Base64 for GitHub Actions Secret (cross-platform compatible)
+    encoded_secret = base64.b64encode(creds.to_json().encode("utf-8")).decode("utf-8")
 
     print("\n=======================================================")
     print(f" GITHUB ACTION SECRET NAME: {secret_name}")

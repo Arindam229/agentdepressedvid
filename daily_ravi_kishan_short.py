@@ -38,10 +38,11 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
     creds = None
     
     candidate_paths = [
+        "token_ravi_kishan.json",
         token_path,
         "token_ravi_kishan.pickle",
-        "token.pickle",
         "token.json",
+        "token.pickle",
         os.path.join("agentforchatvid", "token.json")
     ]
     
@@ -52,13 +53,20 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
             break
             
     if found_path:
+        # 1. Try loading as JSON (cross-platform format)
         try:
-            with open(found_path, "rb") as f:
-                creds = pickle.load(f)
+            with open(found_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            from google.oauth2.credentials import Credentials
+            creds = Credentials.from_authorized_user_info(data, SCOPES)
         except Exception:
+            pass
+
+        # 2. Try loading as pickle
+        if not creds:
             try:
-                from google.oauth2.credentials import Credentials
-                creds = Credentials.from_authorized_user_file(found_path, SCOPES)
+                with open(found_path, "rb") as f:
+                    creds = pickle.load(f)
             except Exception as e:
                 print(f"Failed to load credentials from {found_path}: {e}")
                 
@@ -67,8 +75,15 @@ def get_authenticated_service(token_path="token_ravi_kishan.pickle"):
             print("Refreshing YouTube OAuth access token...")
             creds.refresh(Request())
             target_save = found_path or token_path
-            with open(target_save, "wb") as f:
-                pickle.dump(creds, f)
+            try:
+                if target_save.endswith(".json"):
+                    with open(target_save, "w", encoding="utf-8") as f:
+                        f.write(creds.to_json())
+                else:
+                    with open(target_save, "wb") as f:
+                        pickle.dump(creds, f)
+            except Exception:
+                pass
         else:
             raise Exception("No valid YouTube credentials token found! Please run generate_new_token.py first.")
             

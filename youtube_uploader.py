@@ -15,10 +15,10 @@ def get_authenticated_service(token_path="token.pickle"):
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
     creds = None
     
-    # Search candidates for YouTube token
     candidate_paths = [
-        token_path,
         "token.json",
+        token_path,
+        "token.pickle",
         os.path.join("agentforchatvid", "token.json"),
         os.path.join("agentforchatvid", "token.pickle")
     ]
@@ -30,13 +30,20 @@ def get_authenticated_service(token_path="token.pickle"):
             break
             
     if found_path:
+        # 1. Try loading as JSON (cross-platform format)
         try:
-            with open(found_path, "rb") as f:
-                creds = pickle.load(f)
+            with open(found_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            from google.oauth2.credentials import Credentials
+            creds = Credentials.from_authorized_user_info(data, SCOPES)
         except Exception:
+            pass
+
+        # 2. Try loading as pickle
+        if not creds:
             try:
-                from google.oauth2.credentials import Credentials
-                creds = Credentials.from_authorized_user_file(found_path, SCOPES)
+                with open(found_path, "rb") as f:
+                    creds = pickle.load(f)
             except Exception as e:
                 print(f"Failed to load credentials from {found_path}: {e}")
                 
@@ -45,8 +52,15 @@ def get_authenticated_service(token_path="token.pickle"):
             print("Refreshing YouTube OAuth access token...")
             creds.refresh(Request())
             target_save = found_path or token_path
-            with open(target_save, "wb") as f:
-                pickle.dump(creds, f)
+            try:
+                if target_save.endswith(".json"):
+                    with open(target_save, "w", encoding="utf-8") as f:
+                        f.write(creds.to_json())
+                else:
+                    with open(target_save, "wb") as f:
+                        pickle.dump(creds, f)
+            except Exception:
+                pass
         else:
             raise Exception("No valid YouTube credentials token found!")
             
