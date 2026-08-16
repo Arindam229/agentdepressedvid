@@ -32,35 +32,45 @@ DEFAULT_PROMPT = (
     "authentic noise and subtle film grain, dramatic shadows, non-cgi photorealistic photography"
 )
 
+# Curated authentic Unsplash real photography IDs (sad/melancholic portrait near window/night light)
+UNSPLASH_PHOTO_IDS = [
+    "1534528741775-53994a69daeb", # portrait dark moody woman
+    "1517841905240-472988babdf9", # gloomy portrait
+    "1494790108377-be9c29b29330", # moody female portrait
+    "1508214751196-bcfd4ca60f91", # dark aesthetic woman looking away
+    "1524504388940-b1c1722653e1", # aesthetic moody portrait night
+    "1507003211169-0a1dd7228f2d", # dark shadow portrait
+    "1519085360753-af0119f7cbe7"  # moody dark aesthetic woman
+]
+
 def generate_ai_image(output_path="background_ai.jpg", prompt=None, seed=None):
-    """Generates photorealistic melancholy camera-facing background using FLUX model."""
+    """Downloads a real authentic photograph from Unsplash."""
     import urllib.request
-    import urllib.parse
-    import time
+    import random
     
-    print("[0/5] Generating photorealistic image via FLUX (Pollinations API)...")
+    print("[0/5] Fetching authentic real photograph from Unsplash...")
     
-    if not prompt:
-        prompt = DEFAULT_PROMPT
-    if seed is None:
-        seed = random.randint(1000, 999999)
-        
-    encoded_prompt = urllib.parse.quote(prompt)
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=flux&seed={seed}&nologo=true"
+    photo_id = random.choice(UNSPLASH_PHOTO_IDS)
+    unsplash_url = f"https://images.unsplash.com/photo-{photo_id}?w=1920&h=1080&fit=crop&q=80"
     
-    for attempt in range(1, 4):
+    try:
+        req = urllib.request.Request(unsplash_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=30) as resp, open(output_path, "wb") as f:
+            f.write(resp.read())
+        print(f"Real Unsplash photograph saved: {output_path}")
+        return output_path
+    except Exception as e:
+        print(f"Unsplash fetch failed: {e}. Fallback to Picsum...")
+        fallback_url = "https://picsum.photos/1920/1080"
         try:
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=45) as resp, open(output_path, "wb") as f:
+            req = urllib.request.Request(fallback_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30) as resp, open(output_path, "wb") as f:
                 f.write(resp.read())
-            print(f"High-quality FLUX photorealistic image saved: {output_path}")
+            print(f"Picsum real photo saved: {output_path}")
             return output_path
-        except Exception as e:
-            print(f"FLUX attempt {attempt} failed: {e}. Waiting 5 seconds before retrying...")
-            time.sleep(5)
-            
-    print("Image generation failed after retries.")
-    return None
+        except Exception:
+            return None
+
 
 
 
