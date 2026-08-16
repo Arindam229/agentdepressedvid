@@ -44,32 +44,40 @@ UNSPLASH_PHOTO_IDS = [
 ]
 
 def generate_ai_image(output_path="background_ai.jpg", prompt=None, seed=None):
-    """Downloads a real authentic photograph from Unsplash."""
-    import urllib.request
+    """Selects a random authentic background photo from the background/ folder."""
+    import glob
     import random
+    import shutil
     
-    print("[0/5] Fetching authentic real photograph from Unsplash...")
+    print("[0/5] Selecting random background image from background/ folder...")
     
-    photo_id = random.choice(UNSPLASH_PHOTO_IDS)
+    bg_folder = os.path.join(os.path.dirname(__file__), "background")
+    images = (
+        glob.glob(os.path.join(bg_folder, "*.jpg")) +
+        glob.glob(os.path.join(bg_folder, "*.jpeg")) +
+        glob.glob(os.path.join(bg_folder, "*.png")) +
+        glob.glob(os.path.join(bg_folder, "*.webp"))
+    )
+    
+    if images:
+        selected_img = random.choice(images)
+        print(f"Selected background image: {os.path.basename(selected_img)}")
+        shutil.copyfile(selected_img, output_path)
+        return output_path
+    
+    print("Warning: No images found in background/ folder! Using Unsplash fallback...")
+    photo_id = "1534528741775-53994a69daeb"
     unsplash_url = f"https://images.unsplash.com/photo-{photo_id}?w=1920&h=1080&fit=crop&q=80"
-    
     try:
+        import urllib.request
         req = urllib.request.Request(unsplash_url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=30) as resp, open(output_path, "wb") as f:
             f.write(resp.read())
-        print(f"Real Unsplash photograph saved: {output_path}")
         return output_path
     except Exception as e:
-        print(f"Unsplash fetch failed: {e}. Fallback to Picsum...")
-        fallback_url = "https://picsum.photos/1920/1080"
-        try:
-            req = urllib.request.Request(fallback_url, headers={'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=30) as resp, open(output_path, "wb") as f:
-                f.write(resp.read())
-            print(f"Picsum real photo saved: {output_path}")
-            return output_path
-        except Exception:
-            return None
+        print(f"Fallback failed: {e}")
+        return None
+
 
 
 
