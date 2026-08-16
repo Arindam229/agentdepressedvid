@@ -26,89 +26,42 @@ DEFAULT_TITLES = [
 
 
 DEFAULT_PROMPT = (
-    "A photorealistic candid low-light photograph of a melancholic young woman leaning near a room window at night, "
-    "dark ambient deep blue lighting, faint city lights softly blurred outside the window, sad and somber expression, "
-    "natural grain, soft indoor shadow tones, authentic mood, 35mm film photography aesthetic"
+    "A raw candid 35mm film photograph portrait of a depressed sad young woman facing the camera directly, "
+    "leaning her cheek on her hand, sitting by a window at night in a dark room, deep moody blue lighting, "
+    "blurred city streetlights outside the window glass, melancholic tired eyes, natural skin texture, "
+    "authentic noise and subtle film grain, dramatic shadows, non-cgi photorealistic photography"
 )
 
 def generate_ai_image(output_path="background_ai.jpg", prompt=None, seed=None):
-    """Generates photorealistic melancholy background using Gemini / Imagen or OpenRouter API."""
+    """Generates photorealistic melancholy camera-facing background using FLUX model."""
     import urllib.request
-    import json
+    import urllib.parse
+    import time
     
-    print("[0/5] Generating photorealistic image via Gemini / OpenRouter API...")
+    print("[0/5] Generating photorealistic image via FLUX (Pollinations API)...")
     
     if not prompt:
         prompt = DEFAULT_PROMPT
+    if seed is None:
+        seed = random.randint(1000, 999999)
         
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+    encoded_prompt = urllib.parse.quote(prompt)
+    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=flux&seed={seed}&nologo=true"
     
-    # 1. Try Gemini Imagen API if API key is available
-    if api_key and api_key.startswith("AIza"):
+    for attempt in range(1, 4):
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:generateImages?key={api_key}"
-            payload = {
-                "prompt": prompt,
-                "config": {
-                    "numberOfImages": 1,
-                    "aspectRatio": "16:9",
-                    "outputMimeType": "image/jpeg"
-                }
-            }
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={'Content-Type': 'application/json'}
-            )
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                import base64
-                img_b64 = data['generatedImages'][0]['image']['imageBytes']
-                with open(output_path, "wb") as f:
-                    f.write(base64.b64decode(img_b64))
-            print(f"Gemini Imagen image saved: {output_path}")
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=45) as resp, open(output_path, "wb") as f:
+                f.write(resp.read())
+            print(f"High-quality FLUX photorealistic image saved: {output_path}")
             return output_path
         except Exception as e:
-            print(f"Gemini Imagen request failed: {e}. Trying OpenRouter / Pollinations fallback...")
+            print(f"FLUX attempt {attempt} failed: {e}. Waiting 5 seconds before retrying...")
+            time.sleep(5)
+            
+    print("Image generation failed after retries.")
+    return None
 
-    # 2. Try OpenRouter API if OPENROUTER_API_KEY set
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    if openrouter_key:
-        try:
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            payload = {
-                "model": "google/imagen-3",
-                "messages": [{"role": "user", "content": prompt}]
-            }
-            req = urllib.request.Request(
-                url,
-                data=json.dumps(payload).encode('utf-8'),
-                headers={
-                    'Authorization': f'Bearer {openrouter_key}',
-                    'Content-Type': 'application/json'
-                }
-            )
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.loads(resp.read().decode('utf-8'))
-                # Handle openrouter response
-        except Exception as e:
-            print(f"OpenRouter request failed: {e}")
-
-    # 3. High quality Pollinations Turbo realistic model fallback
-    try:
-        import urllib.parse
-        if seed is None:
-            seed = random.randint(1000, 999999)
-        encoded_prompt = urllib.parse.quote(f"photorealistic film snapshot of {prompt}")
-        poll_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=1920&height=1080&model=turbo&seed={seed}&nologo=true"
-        req = urllib.request.Request(poll_url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=60) as resp, open(output_path, "wb") as f:
-            f.write(resp.read())
-        print(f"High-quality realistic image saved: {output_path}")
-        return output_path
-    except Exception as e:
-        print(f"Image generation failed: {e}")
-        return None
 
 
 
